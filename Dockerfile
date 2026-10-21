@@ -40,7 +40,7 @@ LABEL org.opencontainers.image.description="Caddy web server image with the cadd
 LABEL org.opencontainers.image.url=https://caddyserver.com
 LABEL org.opencontainers.image.documentation=https://caddyserver.com/docs
 LABEL org.opencontainers.image.licenses=Apache-2.0
-LABEL org.opencontainers.image.source="https://github.com/caddy-dns/cloudflare"
+LABEL org.opencontainers.image.source="https://github.com/0xmichalis/caddy-cloudflare"
 
 EXPOSE 80
 EXPOSE 443
