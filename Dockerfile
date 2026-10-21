@@ -1,5 +1,7 @@
 FROM caddy:2-builder-alpine AS builder
 
+ENV GOTOOLCHAIN=go1.27.3
+
 ADD . .
 
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest && \
