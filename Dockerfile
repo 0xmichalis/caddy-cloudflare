@@ -1,11 +1,13 @@
 FROM caddy:2-builder-alpine AS builder
 
 ENV GOTOOLCHAIN=go1.27.3
+# CI passes the Caddy release it publishes; local builds take the newest.
+ARG CADDY_VERSION=latest
 
 ADD . .
 
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest && \
-    xcaddy build \
+    xcaddy build "$CADDY_VERSION" \
     --output /usr/bin/caddy \
     --with "github.com/caddy-dns/cloudflare=."
 
