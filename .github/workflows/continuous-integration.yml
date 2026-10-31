@@ -49,7 +49,7 @@ jobs:
   build-with-xcaddy-and-push:
     runs-on: ubuntu-latest
     name: "Build with xcaddy, scan, and push to GHCR"
-    # Serialize publishing so tag and scheduled runs cannot interleave.
+    # Serialize publishing so branch, tag and scheduled runs cannot interleave.
     concurrency:
       group: publish
       cancel-in-progress: false
@@ -102,8 +102,8 @@ jobs:
           echo "Fixable vulnerabilities in the binary: $fixable"
           echo "fixable=$fixable" >> "$GITHUB_OUTPUT"
 
-      # Tags publish as themselves; scheduled and manual runs publish a Caddy
-      # release that has no image yet.
+      # Branch pushes publish by commit; tags publish as themselves. Scheduled
+      # and manual runs publish a Caddy release that has no image yet.
       - name: Choose the image tag to publish
         id: publish
         env:
@@ -111,6 +111,8 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" = push ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            echo "tag=sha-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           elif [ "$GITHUB_EVENT_NAME" = schedule ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             if ! docker buildx imagetools inspect "$IMAGE_NAME:$CADDY_VERSION" > /dev/null 2>&1; then
               echo "tag=$CADDY_VERSION" >> "$GITHUB_OUTPUT"
