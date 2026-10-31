@@ -152,12 +152,22 @@ jobs:
           cosign public-key --key env://COSIGN_PRIVATE_KEY > "$RUNNER_TEMP/cosign.pub"
           cosign verify --insecure-ignore-tlog=true --key "$RUNNER_TEMP/cosign.pub" "$IMAGE" > /dev/null
 
-      # latest only ever points at a signed digest.
+      # Keep latest signed and prevent stale branch builds from rolling it back.
       - name: Publish latest
         if: steps.publish.outputs.tag
         env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           IMAGE: ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
-        run: docker buildx imagetools create --prefer-index=false --tag "$IMAGE_NAME:latest" "$IMAGE"
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ] && [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            branch_head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$DEFAULT_BRANCH" --jq .object.sha)
+            if [ "$branch_head" != "$GITHUB_SHA" ]; then
+              echo "Skipping latest: $GITHUB_SHA is not the current $DEFAULT_BRANCH head."
+              exit 0
+            fi
+          fi
+          docker buildx imagetools create --prefer-index=false --tag "$IMAGE_NAME:latest" "$IMAGE"
 
       # Publishing does not wait for a fix, but the run still fails so the
       # finding is reported.
