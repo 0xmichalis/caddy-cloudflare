@@ -9,6 +9,7 @@ ADD . .
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest && \
     xcaddy build "$CADDY_VERSION" \
     --output /usr/bin/caddy \
+    --replace "github.com/go-jose/go-jose/v4=github.com/go-jose/go-jose/v4@v4.1.6" \
     --with "github.com/caddy-dns/cloudflare=."
 
 FROM alpine:3.22
