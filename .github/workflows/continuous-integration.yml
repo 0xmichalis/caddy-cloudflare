@@ -89,17 +89,18 @@ jobs:
       # Trivy's --ignore-unfixed, only vulnerable code that has a fix fails.
       - name: Scan the Caddy binary for Go vulnerabilities
         id: govulncheck
-        continue-on-error: true
         run: |
           container=$(docker create caddy-cloudflare:build)
           docker cp "$container:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
           docker rm "$container" > /dev/null
+          # The text report exits 3 when it lists findings. JSON mode exits 0
+          # unless the scan itself fails, which stops the job before publishing.
           go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -mode=binary "$RUNNER_TEMP/caddy" || true
           go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -mode=binary -format json "$RUNNER_TEMP/caddy" > "$RUNNER_TEMP/govulncheck.json"
           fixable=$(jq -sc '[.[] | select(.finding and .finding.trace[0].function != null
             and (.finding.fixed_version // "") != "") | .finding.osv] | unique' "$RUNNER_TEMP/govulncheck.json")
           echo "Fixable vulnerabilities in the binary: $fixable"
-          test "$fixable" = "[]"
+          echo "fixable=$fixable" >> "$GITHUB_OUTPUT"
 
       # Tags publish as themselves; scheduled and manual runs publish a Caddy
       # release that has no image yet.
@@ -159,7 +160,9 @@ jobs:
       # Publishing does not wait for a fix, but the run still fails so the
       # finding is reported.
       - name: Report Go vulnerabilities
-        if: steps.govulncheck.outcome == 'failure'
+        if: steps.govulncheck.outputs.fixable != '[]'
+        env:
+          FIXABLE: ${{ steps.govulncheck.outputs.fixable }}
         run: |
-          echo "::error::govulncheck found vulnerabilities in the Caddy binary; see the scan step."
+          echo "::error::govulncheck found fixable vulnerabilities in the Caddy binary: $FIXABLE"
           exit 1
