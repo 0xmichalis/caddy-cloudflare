@@ -1,6 +1,11 @@
 FROM caddy:2-builder-alpine AS builder
 
 ENV GOTOOLCHAIN=go1.27.3
+# Replaces xcaddy's default "-ldflags '-w -s' -trimpath -tags ...". Keeping
+# the symbol table (-w drops only DWARF) lets govulncheck see which packages
+# the binary links; on a stripped binary it flags every vulnerable package of
+# each dependency module.
+ENV XCADDY_GO_BUILD_FLAGS="-ldflags=-w -trimpath -tags=nobadger,nomysql,nopgx"
 # CI passes the Caddy release it publishes; local builds take the newest.
 ARG CADDY_VERSION=latest
 
