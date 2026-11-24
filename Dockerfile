@@ -14,10 +14,12 @@ ADD . .
 # Each --replace pins a dependency to the patched release the latest Caddy does
 # not require yet. A replace fixes the exact version, so remove it once Caddy's
 # go.mod requires that version or newer, or it will downgrade the dependency.
+# The log SDK also requires the matching OpenTelemetry core, SDK and trace.
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest && \
     xcaddy build "$CADDY_VERSION" \
     --output /usr/bin/caddy \
     --replace "github.com/klauspost/compress=github.com/klauspost/compress@v1.20.2" \
+    --replace "go.opentelemetry.io/otel/sdk/log=go.opentelemetry.io/otel/sdk/log@v1.47.0" \
     --with "github.com/caddy-dns/cloudflare=."
 
 FROM alpine:3.22
