@@ -15,7 +15,7 @@
 package cloudflare
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 
 	"github.com/caddyserver/caddy/v2"
@@ -47,11 +47,14 @@ func (Provider) CaddyModule() caddy.ModuleInfo {
 // Before using the provider config, resolve placeholders in the API token(s).
 // Implements caddy.Provisioner.
 func (p *Provider) Provision(ctx caddy.Context) error {
-	p.Provider.APIToken = caddy.NewReplacer().ReplaceAll(p.Provider.APIToken, "")
-	p.Provider.ZoneToken = caddy.NewReplacer().ReplaceAll(p.Provider.ZoneToken, "")
-	if !validCloudflareToken(p.Provider.APIToken) {
-		return fmt.Errorf("API token '%s' appears invalid; ensure it's correctly entered and not wrapped in braces nor quotes", p.Provider.APIToken)
+	replacer := caddy.NewReplacer()
+	apiToken := replacer.ReplaceAll(p.Provider.APIToken, "")
+	if !validCloudflareToken(apiToken) {
+		return errors.New("invalid Cloudflare API token. Check the resolved value and remove any surrounding braces or quotes")
 	}
+	zoneToken := replacer.ReplaceAll(p.Provider.ZoneToken, "")
+	p.Provider.APIToken = apiToken
+	p.Provider.ZoneToken = zoneToken
 	return nil
 }
 
@@ -101,12 +104,12 @@ func (p *Provider) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 					return d.ArgErr()
 				}
 			default:
-				return d.Errf("unrecognized subdirective '%s'", d.Val())
+				return d.Err("unrecognized Cloudflare subdirective (expected api_token or zone_token)")
 			}
 		}
 	}
 	if d.NextArg() {
-		return d.Errf("unexpected argument '%s'", d.Val())
+		return d.Err("unexpected argument in Cloudflare configuration")
 	}
 	if p.Provider.APIToken == "" {
 		return d.Err("missing API token")
