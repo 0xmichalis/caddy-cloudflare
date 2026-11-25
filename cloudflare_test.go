@@ -125,20 +125,56 @@ func TestPartialConfig(t *testing.T) {
 }
 
 func TestTooManyArgs(t *testing.T) {
-	fmt.Println("Testing too many args... ")
-	api_token := "foo"
-	config := fmt.Sprintf("cloudflare %s with more", api_token)
+	const sentinel = "synthetic-token-from-paste"
+	for _, test := range []struct {
+		name   string
+		config string
+	}{
+		{"inline", "cloudflare {env.CF_API_TOKEN} " + sentinel},
+		{"api_token", "cloudflare {\n api_token {env.CF_API_TOKEN} " + sentinel + "\n}"},
+		{"zone_token", "cloudflare {\n api_token {env.CF_API_TOKEN}\n zone_token {env.CF_ZONE_TOKEN} " + sentinel + "\n}"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dispenser := caddyfile.NewTestDispenser(test.config)
+			p := Provider{&cloudflare.Provider{}}
+			err := p.UnmarshalCaddyfile(dispenser)
+			if err == nil {
+				t.Fatal("expected a Caddyfile parse error")
+			}
+			if strings.Contains(err.Error(), sentinel) {
+				t.Error("parse error includes a token")
+			}
+		})
+	}
+}
 
-	dispenser := caddyfile.NewTestDispenser(config)
-	p := Provider{&cloudflare.Provider{}}
+func TestProvisionTokenPlaceholders(t *testing.T) {
+	const apiPlaceholder = "{env.CADDY_CLOUDFLARE_TEST_API_TOKEN}"
+	const zonePlaceholder = "{env.CADDY_CLOUDFLARE_TEST_ZONE_TOKEN}"
+	const invalidToken = "synthetic-invalid-api-token"
+	apiToken := "cfut_" + strings.Repeat("a", 256)
+	zoneToken := strings.Repeat("b", 40)
+	t.Setenv("CADDY_CLOUDFLARE_TEST_API_TOKEN", `"`+invalidToken+`"`)
+	t.Setenv("CADDY_CLOUDFLARE_TEST_ZONE_TOKEN", zoneToken)
+	p := Provider{&cloudflare.Provider{APIToken: apiPlaceholder, ZoneToken: zonePlaceholder}}
 
-	err := p.UnmarshalCaddyfile(dispenser)
+	err := p.Provision(caddy.Context{})
 	if err == nil {
-		t.Errorf(
-			"UnmarshalCaddyfile should have provided an error, but none was received. api_token = %s, zone_token = %s",
-			p.Provider.APIToken,
-			p.Provider.ZoneToken,
-		)
+		t.Fatal("expected provisioning to reject the invalid token")
+	}
+	if strings.Contains(err.Error(), invalidToken) {
+		t.Error("provisioning error includes the invalid token")
+	}
+	if p.APIToken != apiPlaceholder || p.ZoneToken != zonePlaceholder {
+		t.Fatal("failed provisioning changed the configured credentials")
+	}
+
+	t.Setenv("CADDY_CLOUDFLARE_TEST_API_TOKEN", apiToken)
+	if err := p.Provision(caddy.Context{}); err != nil {
+		t.Fatal("provisioning rejected a valid token after correcting the environment")
+	}
+	if p.APIToken != apiToken || p.ZoneToken != zoneToken {
+		t.Error("provisioning did not resolve both token placeholders")
 	}
 }
 
