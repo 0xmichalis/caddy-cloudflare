@@ -132,7 +132,7 @@ jobs:
       # Keep latest signed and prevent stale branch builds from rolling it back.
       - name: Publish signed image
         id: push
-        uses: 0xmichalis/repo-tooling/actions/publish-image@ed1b0c7db2764f49a7144c7eff80351a90b65ded # v1.0.0
+        uses: 0xmichalis/repo-tooling/actions/publish-image@bfddb8ac3808b18b4dfff99cb030099b8331f0ad
         with:
           image: ${{ env.IMAGE_NAME }}:${{ steps.publish.outputs.tag }}
           signing-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
